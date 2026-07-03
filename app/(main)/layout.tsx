@@ -3,6 +3,7 @@ import { LoaderIcon } from "@/components/loader-icon";
 import { useConvexAuth } from "convex/react";
 import { redirect } from "next/navigation";
 import { Navigation } from "@/components/main/navigation";
+import { SearchCommand } from "@/components/search-command";
 
 export default function MainLayout({
   children,
@@ -26,7 +27,10 @@ export default function MainLayout({
   return (
     <div className="h-full flex">
       <Navigation />
-      <main className="flex-1 h-full overflow-y-auto">{children}</main>
+      <main className="flex-1 h-full overflow-y-auto">
+        <SearchCommand />
+        {children}
+      </main>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ConvexProviderWrapper } from "@/components/providers/convex-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ModalProvider } from "@/components/providers/modal-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const code = Cascadia_Code({ subsets: ["latin"], variable: "--font-code" })
@@ -50,6 +51,7 @@ export default function RootLayout({
             disableTransitionOnChange
             storageKey="lumina-theme"
           >
+            <ModalProvider />
             <Toaster position="bottom-right"/>
             {children}
           </ThemeProvider>

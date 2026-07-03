@@ -1,5 +1,13 @@
 "use client";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { api } from "@/convex/_generated/api";
+import { useSearch } from "@/hooks/use-search";
+import { useSettings } from "@/hooks/use-settings";
+import { useTrash } from "@/hooks/use-trash";
 import { cn } from "@/lib/utils";
 import {
   ChevronsLeftIcon,
@@ -7,21 +15,31 @@ import {
   PlusSignIcon,
   Search,
   SettingsIcon,
+  Trash,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useMutation, useQuery } from "convex/react";
-import { usePathname } from "next/navigation";
+import { useMutation } from "convex/react";
+import { useParams, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "usehooks-ts";
+import { DocumentList } from "./document-list";
 import { Item } from "./item";
+import { TrashBox } from "./trash-box";
 import UserItem from "./user-item";
 
 export const Navigation = () => {
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const params = useParams();
   const pathname = usePathname();
-  const documents = useQuery(api.documents.get);
   const create = useMutation(api.documents.create);
+  const { onOpen: openSearch } = useSearch();
+  const { onOpen: openSettings } = useSettings();
+  const {
+    isOpen: isTrashOpen,
+    onOpen: openTrash,
+    onClose: closeTrash,
+  } = useTrash();
 
   const isResizingRef = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -136,14 +154,27 @@ export const Navigation = () => {
         </div>
         <div>
           <UserItem />
-          <Item label="Search" isSearch icon={Search} onClick={() => {}} />
-          <Item label="Settings" icon={SettingsIcon} onClick={() => {}} />
+          <Item label="Search" isSearch icon={Search} onClick={openSearch} />
+          <Item label="Settings" icon={SettingsIcon} onClick={openSettings} />
           <Item label="New Page" icon={PlusSignIcon} onClick={handleCreate} />
         </div>
         <div className="mt-4">
-          {documents?.map((doc) => (
-            <div key={doc._id}>{doc.title}</div>
-          ))}
+          <DocumentList />
+          <Item onClick={handleCreate} icon={PlusSignIcon} label="Add a page" />
+          <Popover
+            open={isTrashOpen}
+            onOpenChange={(open) => (open ? openTrash() : closeTrash())}
+          >
+            <PopoverTrigger className="w-full mt-4">
+              <Item label="Archives" icon={Trash} />
+            </PopoverTrigger>
+            <PopoverContent
+              className="p-0 w-72"
+              side={isMobile ? "bottom" : "right"}
+            >
+              <TrashBox />
+            </PopoverContent>
+          </Popover>
         </div>
         <div
           onMouseDown={handleMouseDown}

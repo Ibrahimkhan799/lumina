@@ -1,9 +1,28 @@
 "use client";
-import React from "react";
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { ChevronDown, ChevronRight } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
+import { useUser } from "@clerk/nextjs";
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  Ellipsis,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+import { useMutation } from "convex/react";
+import { useRouter } from "next/navigation";
+import React from "react";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import { Skeleton } from "../ui/skeleton";
 
 interface ItemProps {
   label: React.ReactNode;
@@ -31,13 +50,50 @@ export const Item = ({
   isSearch,
 }: ItemProps) => {
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+  const create = useMutation(api.documents.create);
+  const archive = useMutation(api.documents.archive);
+  const router = useRouter();
+  const { user } = useUser();
+
+  const onArchive = () => {
+    if (!id) return;
+    const promise = archive({ id });
+
+    toast.promise(promise, {
+      loading: "Archiving...",
+      success: "Document archived!",
+      error: "Failed to archive document.",
+    });
+  };
+
+  const handleExpand = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    onExpand?.();
+  };
+
+  const onCreate = () => {
+    if (!id) return;
+
+    const promise = create({ parentDocumentId: id, title: "Untitled" }).then(
+      (docId) => {
+        if (!expanded) onExpand?.();
+        router.push(`/documents/${docId}`);
+      },
+    );
+
+    toast.promise(promise, {
+      loading: "Creating...",
+      success: "Document created!",
+      error: "Failed to create document.",
+    });
+  };
 
   return (
     <div
       onClick={onClick}
       role="button"
       className={cn(
-        "cursor-pointer group min-h-6.75 text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium",
+        "select-none cursor-pointer group min-h-6.75 text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium",
         active && "bg-primary/5 text-primary",
       )}
       style={{ paddingLeft: level ? `${level * 12 + 12}px` : "12px" }}
@@ -46,6 +102,7 @@ export const Item = ({
         <div
           role="button"
           className="h-full rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 mr-1"
+          onClick={handleExpand}
         >
           <HugeiconsIcon
             icon={ChevronIcon}
@@ -69,6 +126,69 @@ export const Item = ({
           <span className="text-[9px]">⌘</span>K
         </kbd>
       )}
+      {!!id && (
+        <div
+          className="ml-auto flex items-center gap-x-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div
+                role="button"
+                className="p-0.5 opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-neutral-200 dark:hover:bg-neutral-700"
+              >
+                <HugeiconsIcon
+                  strokeWidth={2}
+                  icon={Ellipsis}
+                  className="h-4 w-4 text-muted-foreground"
+                />
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-60"
+              align="start"
+              side="right"
+              forceMount
+            >
+              <DropdownMenuItem onClick={onArchive}>
+                <HugeiconsIcon
+                  strokeWidth={2}
+                  icon={Archive}
+                  className="h-4 w-4 mr-0.5"
+                />
+                Archive
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className="text-xs text-muted-foreground p-2">
+                Last edited by: {user?.fullName}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div
+            role="button"
+            onClick={onCreate}
+            className="p-0.5 opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-neutral-200 dark:hover:bg-neutral-700"
+          >
+            <HugeiconsIcon
+              strokeWidth={2}
+              icon={PlusSignIcon}
+              className="h-4 w-4 text-muted-foreground"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+Item.Skeleton = function ItemSkeleton({ level }: { level?: number }) {
+  return (
+    <div
+      style={{ paddingLeft: level ? `${level * 12 + 25}px` : "12px" }}
+      className="flex gap-x-2 py-0.75"
+    >
+      <Skeleton className="h-4 w-4 bg-primary/5" />
+      <Skeleton className="h-4 w-[30%] bg-primary/5" />
     </div>
   );
 };
