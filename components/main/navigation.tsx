@@ -27,6 +27,7 @@ import { DocumentList } from "./document-list";
 import { Item } from "./item";
 import { TrashBox } from "./trash-box";
 import UserItem from "./user-item";
+import { Navbar } from "./navbar";
 
 export const Navigation = () => {
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -190,23 +191,27 @@ export const Navigation = () => {
           isMobile && "left-0 w-full",
         )}
       >
-        <nav className="bg-transparent px-3 py-2 w-full">
-          {isCollapsed && (
-            <div
-              role="button"
-              onClick={resetWidth}
-              className={cn(
-                "h-6 w-6 flex items-center justify-center text-muted-foreground rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition",
-              )}
-            >
-              <HugeiconsIcon
-                icon={Menu09Icon}
+        {!!params.id ? (
+          <Navbar isCollapsed={isCollapsed} onResetWidthAction={resetWidth} />
+        ) : (
+          <nav className="bg-transparent px-3 py-2 w-full">
+            {isCollapsed && (
+              <div
                 role="button"
-                className="w-5 h-5 text-muted-foreground"
-              />
-            </div>
-          )}
-        </nav>
+                onClick={resetWidth}
+                className={cn(
+                  "h-6 w-6 flex items-center justify-center text-muted-foreground rounded-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition",
+                )}
+              >
+                <HugeiconsIcon
+                  icon={Menu09Icon}
+                  role="button"
+                  className="w-5 h-5 text-muted-foreground"
+                />
+              </div>
+            )}
+          </nav>
+        )}
       </div>
     </>
   );

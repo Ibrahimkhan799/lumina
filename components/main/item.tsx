@@ -4,11 +4,11 @@ import { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import {
-  Archive,
   ChevronDown,
   ChevronRight,
   Ellipsis,
   PlusSignIcon,
+  Trash,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { useMutation } from "convex/react";
@@ -153,7 +153,7 @@ export const Item = ({
               <DropdownMenuItem onClick={onArchive}>
                 <HugeiconsIcon
                   strokeWidth={2}
-                  icon={Archive}
+                  icon={Trash}
                   className="h-4 w-4 mr-0.5"
                 />
                 Archive
