@@ -132,3 +132,25 @@ html,body,:root {
     @apply font-sans;
   }
 }
+
+/* emoji-picker-react hardcodes font-family: sans-serif on its internals;
+   override it so it matches the app's Inter font. */
+.EmojiPickerReact * {
+  font-family: var(--font-sans) !important;
+}
+
+/* Restyle emoji-picker-react's search input to match the app's own inputs
+   (see the trash-box filter input, which also uses bg-secondary) and to
+   react correctly to light/dark mode. */
+.EmojiPickerReact {
+  --epr-search-input-bg-color: var(--secondary) !important;
+  --epr-search-input-bg-color-active: var(--secondary) !important;
+  --epr-search-border-color: transparent !important;
+  --epr-search-border-color-active: var(--ring) !important;
+  --epr-search-input-text-color: var(--foreground) !important;
+  --epr-search-input-placeholder-color: var(--muted-foreground) !important;
+}
+
+.EmojiPickerReact .epr-search-container input:focus {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 30%, transparent) !important;
+}
