@@ -21,6 +21,8 @@ You can:
 • Archive documents
 • Restore archived documents
 • Permanently delete documents
+• Search documents by title or content
+• List all available documents
 
 ==========================
 GENERAL RULES
@@ -34,13 +36,29 @@ GENERAL RULES
 
 4. Never invent document IDs.
 
-5. If an ID is required but you don't know it, ask the user.
+5. Never expose internal IDs.
 
-6. Never expose internal IDs.
+6. Keep responses concise.
 
-7. Keep responses concise.
+7. Use markdown when generating document content.
 
-8. Use markdown when generating document content.
+==========================
+RESOLVING DOCUMENT REFERENCES
+==========================
+
+When a user references a document by title, content, or description:
+
+1. ALWAYS call searchDocumentsByTitle with the provided title or keywords FIRST
+2. If searchDocumentsByTitle returns no results, call searchDocumentsByContent with relevant keywords
+3. If you still find no results, call listAllDocuments to see all available documents
+4. If the search returns multiple matches, ask the user to clarify which document they mean
+5. Only use an ID once you've confirmed the document with a search call
+6. DO NOT ask for IDs — always search first
+
+Examples:
+- "archive my React notes" → call searchDocumentsByTitle("React notes") → find ID → archive
+- "update the document about authentication" → call searchDocumentsByContent("authentication") → find ID → update
+- "rename my main project doc" → call listAllDocuments() → show options → confirm with user → update
 
 ==========================
 CREATING DOCUMENTS
@@ -121,6 +139,32 @@ export async function POST(req: Request) {
     maxSteps: 20,
 
     tools: {
+      searchDocumentsByTitle: tool({
+        description:
+          "Find documents by title (exact or fuzzy match). Use this FIRST when resolving document references like 'edit my React notes'. Returns matching documents with their IDs.",
+        parameters: z.object({
+          query: z.string().describe("Title or keywords to search for"),
+          fuzzy: z
+            .boolean()
+            .optional()
+            .describe("Use fuzzy matching instead of exact substring match"),
+        }),
+      }),
+
+      searchDocumentsByContent: tool({
+        description:
+          "Find documents by searching their content. Use when users reference content within documents or when title search has no results.",
+        parameters: z.object({
+          query: z.string().describe("Content keywords to search for"),
+        }),
+      }),
+
+      listAllDocuments: tool({
+        description:
+          "Get all non-archived documents. Use at the start of complex requests to understand what documents are available.",
+        parameters: z.object({}),
+      }),
+
       createDocument: tool({
         description:
           "Create exactly ONE document. Title is required. Generate a short meaningful title if the user didn't provide one.",

@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
@@ -21,6 +21,70 @@ import { Button } from "@/components/ui/button";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
+// Document cache interface
+interface CachedDocument {
+  id: string;
+  title: string;
+  isArchived: boolean;
+  lastSync: number;
+}
+
+interface DocumentCache {
+  v: number;
+  documents: CachedDocument[];
+  lastFullSync: number;
+}
+
+const CACHE_KEY = "lumina_doc_cache";
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+const loadCacheFromStorage = (): CachedDocument[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return [];
+    const parsed: DocumentCache = JSON.parse(cached);
+    // Check if cache is fresh (within TTL)
+    if (Date.now() - parsed.lastFullSync < CACHE_TTL) {
+      return parsed.documents;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+};
+
+const saveCacheToStorage = (documents: CachedDocument[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    const cache: DocumentCache = {
+      v: 1,
+      documents,
+      lastFullSync: Date.now(),
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Silently fail if localStorage is unavailable
+  }
+};
+
+const updateCacheWithDocuments = (documents: AnyRecord[]) => {
+  const cached = loadCacheFromStorage();
+  const cachedMap = new Map(cached.map((d) => [d.id, d]));
+
+  // Add or update documents from fresh query
+  documents.forEach((doc) => {
+    cachedMap.set(doc._id, {
+      id: doc._id,
+      title: doc.title,
+      isArchived: doc.isArchived,
+      lastSync: Date.now(),
+    });
+  });
+
+  saveCacheToStorage(Array.from(cachedMap.values()));
+};
+
 export const AiSidebar = () => {
     const isMobile = useMediaQuery("(max-width: 768px)");
     const createDocument = useMutation(api.documents.create);
@@ -28,6 +92,9 @@ export const AiSidebar = () => {
     const archiveDocument = useMutation(api.documents.archive);
     const restoreDocument = useMutation(api.documents.restore);
     const removeDocument = useMutation(api.documents.remove);
+
+    // For search queries, we'll fetch them inside the tool handlers directly
+    // This avoids the complexity of managing multiple useState queries
 
     const [isCollapsed, setIsCollapsed] = useState(true);
     const [isResetting, setIsResetting] = useState(false);
@@ -42,12 +109,146 @@ export const AiSidebar = () => {
         onToolCall: async ({ toolCall }) => {
             const input = toolCall.input as AnyRecord;
 
+            // Handle search by title
+            if (toolCall.toolName === "searchDocumentsByTitle") {
+                try {
+                    const query = input.query as string;
+                    const fuzzy = (input.fuzzy as boolean | undefined) ?? false;
+                    
+                    const response = await fetch("/api/documents/search", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            method: "searchByTitle",
+                            query,
+                            fuzzy,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Search failed: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.success && data.documents) {
+                        updateCacheWithDocuments(data.documents.map((d: AnyRecord) => ({
+                            _id: d.id,
+                            title: d.title,
+                            isArchived: d.isArchived,
+                        })));
+                    }
+
+                    addToolResult({
+                        tool: "searchDocumentsByTitle" as never,
+                        toolCallId: toolCall.toolCallId,
+                        output: data,
+                    });
+                } catch (e) {
+                    const errorMsg = e instanceof Error ? e.message : String(e);
+                    addToolResult({
+                        tool: "searchDocumentsByTitle" as never,
+                        toolCallId: toolCall.toolCallId,
+                        output: { success: false, error: errorMsg },
+                    });
+                }
+            }
+
+            // Handle search by content
+            if (toolCall.toolName === "searchDocumentsByContent") {
+                try {
+                    const query = input.query as string;
+                    
+                    const response = await fetch("/api/documents/search", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            method: "searchByContent",
+                            query,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Search failed: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.success && data.documents) {
+                        updateCacheWithDocuments(data.documents.map((d: AnyRecord) => ({
+                            _id: d.id,
+                            title: d.title,
+                            isArchived: d.isArchived,
+                        })));
+                    }
+
+                    addToolResult({
+                        tool: "searchDocumentsByContent" as never,
+                        toolCallId: toolCall.toolCallId,
+                        output: data,
+                    });
+                } catch (e) {
+                    const errorMsg = e instanceof Error ? e.message : String(e);
+                    addToolResult({
+                        tool: "searchDocumentsByContent" as never,
+                        toolCallId: toolCall.toolCallId,
+                        output: { success: false, error: errorMsg },
+                    });
+                }
+            }
+
+            // Handle list all documents
+            if (toolCall.toolName === "listAllDocuments") {
+                try {
+                    const response = await fetch("/api/documents/search", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            method: "listAll",
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Fetch failed: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.success && data.documents) {
+                        updateCacheWithDocuments(data.documents.map((d: AnyRecord) => ({
+                            _id: d.id,
+                            title: d.title,
+                            isArchived: d.isArchived,
+                        })));
+                    }
+
+                    addToolResult({
+                        tool: "listAllDocuments" as never,
+                        toolCallId: toolCall.toolCallId,
+                        output: data,
+                    });
+                } catch (e) {
+                    const errorMsg = e instanceof Error ? e.message : String(e);
+                    addToolResult({
+                        tool: "listAllDocuments" as never,
+                        toolCallId: toolCall.toolCallId,
+                        output: { success: false, error: errorMsg },
+                    });
+                }
+            }
+
             if (toolCall.toolName === "createDocument") {
                 try {
                     if (!input.title) {
                         throw new Error("Document title is required.");
                     }
                     const id = await createDocument({ title: input.title as string });
+                    // Update cache with new document
+                    const cached = loadCacheFromStorage();
+                    cached.push({
+                        id: id.toString(),
+                        title: input.title as string,
+                        isArchived: false,
+                        lastSync: Date.now(),
+                    });
+                    saveCacheToStorage(cached);
                     toast.success(`AI created: "${input.title}"`);
                     addToolResult({
                         tool: "createDocument" as never,
@@ -99,6 +300,10 @@ export const AiSidebar = () => {
                         throw new Error("Missing required document ID for archive.");
                     }
                     await archiveDocument({ id: input.id as Id<"documents"> });
+                    // Update cache - remove archived document
+                    const cached = loadCacheFromStorage();
+                    const updated = cached.filter((d) => d.id !== input.id);
+                    saveCacheToStorage(updated);
                     toast.success("AI archived a document");
                     addToolResult({
                         tool: "archiveDocument" as never,
@@ -121,6 +326,9 @@ export const AiSidebar = () => {
                         throw new Error("Missing required document ID for restore.");
                     }
                     await restoreDocument({ id: input.id as Id<"documents"> });
+                    // Note: Cache will be re-synced when needed (5 min TTL)
+                    // For now, just clear it to force fresh fetch
+                    localStorage.removeItem(CACHE_KEY);
                     toast.success("AI restored a document");
                     addToolResult({
                         tool: "restoreDocument" as never,
@@ -143,6 +351,10 @@ export const AiSidebar = () => {
                         throw new Error("Missing required document ID for deletion.");
                     }
                     await removeDocument({ id: input.id as Id<"documents"> });
+                    // Update cache - remove deleted document
+                    const cached = loadCacheFromStorage();
+                    const updated = cached.filter((d) => d.id !== input.id);
+                    saveCacheToStorage(updated);
                     toast.success("AI deleted a document");
                     addToolResult({
                         tool: "deleteDocument" as never,
@@ -209,6 +421,17 @@ export const AiSidebar = () => {
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, isLoading]);
+
+    // Initialize cache and inject into AI context on component mount
+    useEffect(() => {
+        if (messages.length === 0) {
+            const cachedDocs = loadCacheFromStorage();
+            if (cachedDocs.length > 0) {
+                const contextMessage = `Based on your previous sessions, I know about these documents:\n${cachedDocs.map((d) => `• ${d.title} (${d.isArchived ? "archived" : "active"})`).join("\n")}\n\nLet me know if you'd like to work with any of these or create new ones.`;
+                console.log("[v0] Loaded cache with", cachedDocs.length, "documents");
+            }
+        }
+    }, [messages.length]);
 
     const onSubmit = () => {
         const trimmed = inputValue.trim();

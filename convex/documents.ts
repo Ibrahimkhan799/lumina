@@ -254,3 +254,89 @@ export const update = mutation({
     return await ctx.db.patch(id, { ...rest });
   },
 });
+
+export const searchByTitle = query({
+  args: {
+    query: v.string(),
+    fuzzy: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("User not authenticated");
+    }
+
+    const userId = identity.subject;
+
+    const allDocuments = await ctx.db
+      .query("documents")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    const queryLower = args.query.toLowerCase();
+
+    return allDocuments.filter((doc) => {
+      const titleLower = doc.title.toLowerCase();
+      if (args.fuzzy) {
+        // Simple fuzzy match: check if all query chars appear in order
+        let queryIdx = 0;
+        for (let i = 0; i < titleLower.length && queryIdx < queryLower.length; i++) {
+          if (titleLower[i] === queryLower[queryIdx]) {
+            queryIdx++;
+          }
+        }
+        return queryIdx === queryLower.length;
+      } else {
+        // Exact substring match
+        return titleLower.includes(queryLower);
+      }
+    });
+  },
+});
+
+export const searchByContent = query({
+  args: {
+    query: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("User not authenticated");
+    }
+
+    const userId = identity.subject;
+
+    const allDocuments = await ctx.db
+      .query("documents")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    const queryLower = args.query.toLowerCase();
+
+    return allDocuments.filter((doc) => {
+      const contentLower = (doc.content || "").toLowerCase();
+      const titleLower = doc.title.toLowerCase();
+      return contentLower.includes(queryLower) || titleLower.includes(queryLower);
+    });
+  },
+});
+
+export const listAll = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("User not authenticated");
+    }
+
+    const userId = identity.subject;
+
+    return await ctx.db
+      .query("documents")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .order("desc")
+      .collect();
+  },
+});
