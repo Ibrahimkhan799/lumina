@@ -112,7 +112,7 @@ export const AiSidebar = () => {
             // Handle search by title
             if (toolCall.toolName === "searchDocumentsByTitle") {
                 try {
-                    const query = input.query as string;
+                    const title = input.title as string;
                     const fuzzy = (input.fuzzy as boolean | undefined) ?? false;
                     
                     const response = await fetch("/api/documents/search", {
@@ -120,7 +120,7 @@ export const AiSidebar = () => {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             method: "searchByTitle",
-                            query,
+                            title,
                             fuzzy,
                         }),
                     });
@@ -156,14 +156,14 @@ export const AiSidebar = () => {
             // Handle search by content
             if (toolCall.toolName === "searchDocumentsByContent") {
                 try {
-                    const query = input.query as string;
+                    const content = input.content as string;
                     
                     const response = await fetch("/api/documents/search", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             method: "searchByContent",
-                            query,
+                            content,
                         }),
                     });
 

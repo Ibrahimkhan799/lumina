@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         description:
           "Find documents by title (exact or fuzzy match). Use this FIRST when resolving document references like 'edit my React notes'. Returns matching documents with their IDs.",
         parameters: z.object({
-          query: z.string().describe("Title or keywords to search for"),
+          title: z.string().describe("Title or keywords to search for"),
           fuzzy: z
             .boolean()
             .optional()
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
         description:
           "Find documents by searching their content. Use when users reference content within documents or when title search has no results.",
         parameters: z.object({
-          query: z.string().describe("Content keywords to search for"),
+          content: z.string().describe("Content keywords to search for"),
         }),
       }),
 
