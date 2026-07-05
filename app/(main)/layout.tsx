@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { Navigation } from "@/components/main/navigation";
 import { SearchCommand } from "@/components/search-command";
 
+import { AiSidebar } from "@/components/main/ai-sidebar";
+
 export default function MainLayout({
   children,
 }: Readonly<{
@@ -31,6 +33,7 @@ export default function MainLayout({
         <SearchCommand />
         {children}
       </main>
+      <AiSidebar />
     </div>
   );
 }
