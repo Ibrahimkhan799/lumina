@@ -1,43 +1,29 @@
-import { auth } from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
-
-const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+import {
+  searchDocumentsByTitle,
+  searchDocumentsByContent,
+  listAllDocuments,
+} from "@/app/actions/search";
 
 export async function POST(req: Request) {
   const { method, title, content, fuzzy } = await req.json();
-  const session = await auth();
-
-  if (!session.userId) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   try {
-    let results;
+    let documents;
 
     if (method === "searchByTitle") {
-      results = await client.query(api.documents.searchByTitle, {
-        query: title as string,
-        fuzzy: fuzzy as boolean | undefined,
-      });
+      documents = await searchDocumentsByTitle(title as string, fuzzy as boolean | undefined);
     } else if (method === "searchByContent") {
-      results = await client.query(api.documents.searchByContent, {
-        query: content as string,
-      });
+      documents = await searchDocumentsByContent(content as string);
     } else if (method === "listAll") {
-      results = await client.query(api.documents.listAll);
+      documents = await listAllDocuments();
     } else {
       return Response.json({ error: "Invalid method" }, { status: 400 });
     }
 
     return Response.json({
       success: true,
-      count: results.length,
-      documents: results.map((doc: any) => ({
-        id: doc._id,
-        title: doc.title,
-        isArchived: doc.isArchived,
-      })),
+      count: documents.length,
+      documents,
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
