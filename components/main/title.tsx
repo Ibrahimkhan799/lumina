@@ -7,6 +7,7 @@ import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
+import { DocumentIcon } from "../document-icon";
 
 type TitleProps = {
   initialData: Doc<"documents">;
@@ -45,7 +46,11 @@ export const Title = ({ initialData }: TitleProps) => {
 
   return (
     <div className="flex items-center gap-x-1">
-      {!!initialData.icon && <p>{initialData.icon}</p>}
+      {!!initialData.icon && (
+        <p>
+          <DocumentIcon icon={initialData.icon} size={18} />
+        </p>
+      )}
       {isEditing ? (
         <Input
           ref={inputRef}

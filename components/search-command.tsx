@@ -29,6 +29,7 @@ import {
 
 import { api } from "@/convex/_generated/api";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { DocumentIcon } from "./document-icon";
 
 export const SearchCommand = () => {
   const { user } = useUser();
@@ -106,7 +107,9 @@ export const SearchCommand = () => {
                 onSelect={() => onSelect(doc._id)}
               >
                 {doc.icon ? (
-                  <p className="mr-2 text-[18px]">{doc.icon}</p>
+                  <p className="mr-2 text-[18px]">
+                    <DocumentIcon icon={doc.icon} size={18} />
+                  </p>
                 ) : (
                   <HugeiconsIcon icon={FileIcon} className="mr-2 h-4 w-4" />
                 )}

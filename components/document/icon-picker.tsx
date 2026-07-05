@@ -1,5 +1,5 @@
 "use client";
-import EmojiPicker, { Theme } from "emoji-picker-react";
+import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
 import { useTheme } from "next-themes";
 import {
   Popover,
@@ -36,8 +36,11 @@ export const IconPicker = ({
           width={280}
           height={300}
           theme={theme}
+          emojiStyle={EmojiStyle.APPLE}
           previewConfig={{ showPreview: false }}
-          onEmojiClick={(data) => onChange(data.emoji)}
+          onEmojiClick={(data) => {
+            onChange(data.emoji);
+          }}
         />
       </PopoverContent>
     </Popover>

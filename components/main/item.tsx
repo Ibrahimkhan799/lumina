@@ -15,6 +15,7 @@ import { useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import React from "react";
 import { toast } from "sonner";
+import { DocumentIcon } from "../document-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +58,7 @@ export const Item = ({
 
   const onArchive = () => {
     if (!id) return;
-    const promise = archive({ id });
+    const promise = archive({ id }).then(() => router.push("/documents"));
 
     toast.promise(promise, {
       loading: "Archiving...",
@@ -111,7 +112,9 @@ export const Item = ({
         </div>
       )}
       {documentIcon ? (
-        <div className="shrink-0 mr-2 text-[18px]">{documentIcon}</div>
+        <div className="shrink-0 mr-2 text-[18px]">
+          <DocumentIcon icon={documentIcon} size={18} />
+        </div>
       ) : (
         <HugeiconsIcon
           strokeWidth={2}

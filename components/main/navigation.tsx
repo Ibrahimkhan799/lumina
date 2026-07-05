@@ -19,7 +19,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "convex/react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "usehooks-ts";
@@ -32,6 +32,7 @@ import { Navbar } from "./navbar";
 export const Navigation = () => {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const params = useParams();
+  const router = useRouter();
   const pathname = usePathname();
   const create = useMutation(api.documents.create);
   const { onOpen: openSearch } = useSearch();
@@ -124,7 +125,9 @@ export const Navigation = () => {
   }, [isMobile]);
 
   const handleCreate = () => {
-    const promise = create({ title: "Untitled" });
+    const promise = create({ title: "Untitled" }).then((id) =>
+      router.push(`/documents/${id}`),
+    );
 
     toast.promise(promise, {
       loading: "Creating...",

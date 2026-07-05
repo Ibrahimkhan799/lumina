@@ -11,6 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Title } from "./title";
 import { Banner } from "./banner";
 import Menu from "./menu";
+import { Publish } from "./publish";
 
 type NavbarProps = {
   isCollapsed: boolean;
@@ -35,14 +36,12 @@ export const Navbar = ({ isCollapsed, onResetWidthAction }: NavbarProps) => {
   }
 
   if (document === null) {
-    return <div>Document not found</div>;
+    return null;
   }
 
   return (
     <>
-      {document.isArchived && (
-        <Banner documentId={document._id} />
-      )}
+      {document.isArchived && <Banner documentId={document._id} />}
       <nav className="bg-background px-3 py-2 w-full flex items-center gap-x-4">
         {isCollapsed && (
           <div
@@ -62,7 +61,8 @@ export const Navbar = ({ isCollapsed, onResetWidthAction }: NavbarProps) => {
         <div className="flex items-center justify-between w-full">
           <Title initialData={document} />
           <div className="flex items-center gap-x-2">
-            <Menu documentId={document._id} />
+            <Publish initialData={document} />
+            {!document.isArchived && <Menu documentId={document._id} />}
           </div>
         </div>
       </nav>
