@@ -1,8 +1,11 @@
 import { groq } from "@ai-sdk/groq";
 import { convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
+import { api } from "@/convex/_generated/api";
+import { fetchQuery, fetchAction, fetchMutation } from "convex/server";
+import { auth } from "@clerk/nextjs/server";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `
 You are Lumina AI, an intelligent assistant integrated into a Notion-like workspace using a block-based editor.
@@ -141,16 +144,20 @@ Never combine multiple documents into a single tool call.
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
+  const { userId } = await auth();
+
+  if (!userId) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { 
+      status: 401,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 
   const result = streamText({
     model: groq("llama-3.3-70b-versatile"),
-
     messages: await convertToModelMessages(messages),
-
     system: SYSTEM_PROMPT,
-
     maxSteps: 20,
-
     tools: {
       searchDocumentsByTitle: tool({
         description:
@@ -162,6 +169,34 @@ export async function POST(req: Request) {
             .optional()
             .describe("Use fuzzy matching instead of exact substring match"),
         }),
+        execute: async ({ title, fuzzy }) => {
+          try {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/documents/search`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  method: "searchByTitle",
+                  title,
+                  fuzzy: fuzzy ?? false,
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Search failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true, documents: data.documents || [] }
+              : { success: false, error: data.error || "Search failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
 
       searchDocumentsByContent: tool({
@@ -170,12 +205,63 @@ export async function POST(req: Request) {
         parameters: z.object({
           content: z.string().describe("Content keywords to search for"),
         }),
+        execute: async ({ content }) => {
+          try {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/documents/search`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  method: "searchByContent",
+                  content,
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Search failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true, documents: data.documents || [] }
+              : { success: false, error: data.error || "Search failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
 
       listAllDocuments: tool({
         description:
           "Get all non-archived documents. Use at the start of complex requests to understand what documents are available.",
         parameters: z.object({}),
+        execute: async () => {
+          try {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/documents/search`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ method: "listAll" }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Fetch failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true, documents: data.documents || [] }
+              : { success: false, error: data.error || "Fetch failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
 
       createDocument: tool({
@@ -188,72 +274,209 @@ export async function POST(req: Request) {
             .optional()
             .describe("Optional parent document ID"),
         }),
+        execute: async ({ title, parentDocumentId }) => {
+          try {
+            if (!title || title.trim().length === 0) {
+              return { success: false, error: "Document title is required" };
+            }
+
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "createDocument",
+                  params: { title, parentDocumentId },
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Create failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true, id: data.id }
+              : { success: false, error: data.error || "Create failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
 
       updateDocument: tool({
-        description: `
-Update any editable field of a document.
-
-Use this tool for:
-
-- Renaming
-- Editing content
-- Changing icon
-- Changing cover image
-- Publishing
-- Unpublishing
-
-Only include fields that actually need changing.
-`,
+        description: `Update any editable field of a document. Use this tool for renaming, editing content, changing icon, changing cover image, publishing, or unpublishing. Only include fields that actually need changing.`,
         parameters: z.object({
           id: z.string().describe("Document ID"),
-
           title: z
             .string()
             .optional()
             .describe("New document title"),
-
           content: z
             .string()
             .optional()
             .describe("A valid JSON string containing an array of BlockNote blocks."),
-
           icon: z
             .string()
             .optional()
             .describe("Emoji icon"),
-
           coverImage: z
             .string()
             .optional()
             .describe("Cover image URL"),
-
           isPublished: z
             .boolean()
             .optional()
             .describe("Publish state"),
         }),
+        execute: async ({ id, title, content, icon, coverImage, isPublished }) => {
+          try {
+            if (!id) {
+              return { success: false, error: "Document ID is required" };
+            }
+
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "updateDocument",
+                  params: { id, title, content, icon, coverImage, isPublished },
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Update failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true }
+              : { success: false, error: data.error || "Update failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
 
       archiveDocument: tool({
-        description: "Archive a document.",
+        description: "Archive a document by its ID.",
         parameters: z.object({
           id: z.string().describe("Document ID"),
         }),
+        execute: async ({ id }) => {
+          try {
+            if (!id) {
+              return { success: false, error: "Document ID is required" };
+            }
+
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "archiveDocument",
+                  params: { id },
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Archive failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true }
+              : { success: false, error: data.error || "Archive failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
 
       restoreDocument: tool({
-        description: "Restore an archived document.",
+        description: "Restore an archived document by its ID.",
         parameters: z.object({
           id: z.string().describe("Document ID"),
         }),
+        execute: async ({ id }) => {
+          try {
+            if (!id) {
+              return { success: false, error: "Document ID is required" };
+            }
+
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "restoreDocument",
+                  params: { id },
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Restore failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true }
+              : { success: false, error: data.error || "Restore failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
 
       deleteDocument: tool({
-        description: "Permanently delete a document.",
+        description: "Permanently delete a document by its ID. This action cannot be undone.",
         parameters: z.object({
           id: z.string().describe("Document ID"),
         }),
+        execute: async ({ id }) => {
+          try {
+            if (!id) {
+              return { success: false, error: "Document ID is required" };
+            }
+
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "deleteDocument",
+                  params: { id },
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`Delete failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.success
+              ? { success: true }
+              : { success: false, error: data.error || "Delete failed" };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return { success: false, error: errorMsg };
+          }
+        },
       }),
     },
   });
