@@ -57,6 +57,27 @@ Example BlockNote content format:
 Always ensure the JSON is valid and minified into a single string when passed to tools.
 
 ==========================
+CRITICAL: SEARCH BEFORE UPDATE/DELETE/ARCHIVE/RESTORE
+==========================
+
+For ANY operation that modifies or deletes a document (rename, edit, archive, restore, delete):
+
+YOU MUST SEARCH FIRST. There is no exception to this rule.
+
+WRONG: updateDocument({"id":"undefined","title":"new name"}) — NEVER DO THIS
+CORRECT: searchDocumentsByTitle("old name") → gets ID → updateDocument({"id":"...","title":"new name"})
+
+If you attempt to call updateDocument, archiveDocument, restoreDocument, or deleteDocument 
+without a valid ID (ID will be "undefined" if you didn't search), the operation will fail.
+
+WORKFLOW FOR MODIFYING DOCUMENTS:
+1. User: "rename Document 1 to my document"
+2. YOU: Call searchDocumentsByTitle("Document 1")
+3. SEARCH RETURNS: {success: true, documents: [{id: "...", title: "Document 1"}]}
+4. YOU: Call updateDocument({id: "...", title: "my document"})
+5. YOU: Report result to user
+
+==========================
 RESOLVING DOCUMENT REFERENCES
 ==========================
 
@@ -66,13 +87,17 @@ When a user references a document by title, content, or description:
 2. If searchDocumentsByTitle returns no results, call searchDocumentsByContent with relevant keywords
 3. If you still find no results, call listAllDocuments to see all available documents
 4. If the search returns multiple matches, ask the user to clarify which document they mean
-5. Only use an ID once you've confirmed the document with a search call
-6. DO NOT ask for IDs — always search first
+5. ONLY use an ID once you've confirmed the document with a search call
+6. DO NOT ask for IDs — ALWAYS search first
 
-Examples:
-- "archive my React notes" → call searchDocumentsByTitle("React notes") → find ID → archive
-- "update the document about authentication" → call searchDocumentsByContent("authentication") → find ID → update
-- "rename my main project doc" → call listAllDocuments() → show options → confirm with user → update
+Mandatory Examples:
+- User says "rename Document 1 to my notes":
+  FIRST: searchDocumentsByTitle("Document 1") → get ID
+  THEN: updateDocument({id: ID, title: "my notes"})
+  
+- User says "archive the old project":
+  FIRST: searchDocumentsByTitle("old project") → get ID
+  THEN: archiveDocument({id: ID})
 
 ==========================
 CREATING DOCUMENTS
@@ -336,8 +361,8 @@ export async function POST(req: Request) {
         }),
         execute: async ({ id, title, content, icon, coverImage, isPublished }) => {
           try {
-            if (!id) {
-              return { success: false, error: "Document ID is required" };
+            if (!id || id === "undefined") {
+              return { success: false, error: "SEARCH FIRST: You must search for the document first using searchDocumentsByTitle or searchDocumentsByContent to get its ID. Then use that ID to update the document." };
             }
 
             const response = await fetch(
@@ -374,8 +399,8 @@ export async function POST(req: Request) {
         }),
         execute: async ({ id }) => {
           try {
-            if (!id) {
-              return { success: false, error: "Document ID is required" };
+            if (!id || id === "undefined") {
+              return { success: false, error: "SEARCH FIRST: You must search for the document first using searchDocumentsByTitle or searchDocumentsByContent to get its ID. Then use that ID to archive the document." };
             }
 
             const response = await fetch(
@@ -412,8 +437,8 @@ export async function POST(req: Request) {
         }),
         execute: async ({ id }) => {
           try {
-            if (!id) {
-              return { success: false, error: "Document ID is required" };
+            if (!id || id === "undefined") {
+              return { success: false, error: "SEARCH FIRST: You must search for the document first using searchDocumentsByTitle or searchDocumentsByContent to get its ID. Then use that ID to restore the document." };
             }
 
             const response = await fetch(
@@ -450,8 +475,8 @@ export async function POST(req: Request) {
         }),
         execute: async ({ id }) => {
           try {
-            if (!id) {
-              return { success: false, error: "Document ID is required" };
+            if (!id || id === "undefined") {
+              return { success: false, error: "SEARCH FIRST: You must search for the document first using searchDocumentsByTitle or searchDocumentsByContent to get its ID. Then use that ID to delete the document." };
             }
 
             const response = await fetch(
