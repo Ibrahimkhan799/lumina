@@ -151,6 +151,11 @@ export async function POST(req: Request) {
     });
   }
 
+  // Get the base URL for internal API calls
+  const protocol = req.headers.get("x-forwarded-proto") || "http";
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
+  const baseUrl = `${protocol}://${host}`;
+
   const result = streamText({
     model: groq("llama-3.3-70b-versatile"),
     messages: await convertToModelMessages(messages),
@@ -278,7 +283,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `/api/chat/mutations`,
+              `${baseUrl}/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -336,7 +341,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `/api/chat/mutations`,
+              `${baseUrl}/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -374,7 +379,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `/api/chat/mutations`,
+              `${baseUrl}/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -412,7 +417,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `/api/chat/mutations`,
+              `${baseUrl}/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -450,7 +455,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `/api/chat/mutations`,
+              `${baseUrl}/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
