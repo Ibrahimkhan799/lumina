@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.8",
+    "@ai-sdk/groq": "^4.0.5",
     "@ai-sdk/react": "^4.0.16",
     "@blocknote/core": "^0.51.4",
     "@blocknote/mantine": "^0.51.4",

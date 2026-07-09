@@ -139,8 +139,6 @@ export const AiSidebar = () => {
                         })));
                     }
 
-                  console.log("SEARCH RESULT", JSON.stringify(data, null, 2));
-
                     addToolResult({
                         tool: "searchDocumentsByTitle" as never,
                         toolCallId: toolCall.toolCallId,

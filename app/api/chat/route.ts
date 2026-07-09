@@ -1,11 +1,11 @@
-import { google } from "@ai-sdk/google";
+import { groq } from "@ai-sdk/groq";
 import { convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
 
 export const maxDuration = 30;
 
 const SYSTEM_PROMPT = `
-You are Lumina AI, an intelligent assistant integrated into a Notion-like workspace.
+You are Lumina AI, an intelligent assistant integrated into a Notion-like workspace using a block-based editor.
 
 Your purpose is to help users manage documents naturally.
 
@@ -21,6 +21,8 @@ You can:
 • Archive documents
 • Restore archived documents
 • Permanently delete documents
+• Search documents by title or content
+• List all available documents
 
 ==========================
 GENERAL RULES
@@ -34,13 +36,42 @@ GENERAL RULES
 
 4. Never invent document IDs.
 
-5. If an ID is required but you don't know it, ask the user.
+5. Never expose internal IDs.
 
-6. Never expose internal IDs.
+6. Keep responses concise. Always confirm the action outcome with the user after executing tools, stating whether it succeeded or explaining the error if it failed.
 
-7. Keep responses concise.
+7. Use BlockNote JSON format when generating document content.
 
-8. Use markdown when generating document content.
+==========================
+BLOCKNOTE CONTENT FORMAT
+==========================
+
+When creating or updating document content, you must output a valid JSON string that represents an array of BlockNote blocks. Each block is an object with a 'type', optional 'props', and a 'content' array.
+
+Supported block types include: 'paragraph', 'heading' (with props.level: 1, 2, or 3), 'bulletListItem', 'numberedListItem', 'codeBlock'.
+
+Example BlockNote content format:
+"[{\\\"id\\\":\\\"1\\\",\\\"type\\\":\\\"heading\\\",\\\"props\\\":{\\\"level\\\":1},\\\"content\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"My Document\\\",\\\"styles\\\":{}}]},{\\\"id\\\":\\\"2\\\",\\\"type\\\":\\\"paragraph\\\",\\\"content\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"This is standard text content.\\\",\\\"styles\\\":{}}]}]"
+
+Always ensure the JSON is valid and minified into a single string when passed to tools.
+
+==========================
+RESOLVING DOCUMENT REFERENCES
+==========================
+
+When a user references a document by title, content, or description:
+
+1. ALWAYS call searchDocumentsByTitle with the provided title or keywords FIRST
+2. If searchDocumentsByTitle returns no results, call searchDocumentsByContent with relevant keywords
+3. If you still find no results, call listAllDocuments to see all available documents
+4. If the search returns multiple matches, ask the user to clarify which document they mean
+5. Only use an ID once you've confirmed the document with a search call
+6. DO NOT ask for IDs — always search first
+
+Examples:
+- "archive my React notes" → call searchDocumentsByTitle("React notes") → find ID → archive
+- "update the document about authentication" → call searchDocumentsByContent("authentication") → find ID → update
+- "rename my main project doc" → call listAllDocuments() → show options → confirm with user → update
 
 ==========================
 CREATING DOCUMENTS
@@ -78,7 +109,7 @@ EDITING DOCUMENTS
 When editing:
 
 - Preserve existing content unless the user asks to replace it.
-- Write well-formatted markdown.
+- Write well-formatted BlockNote JSON blocks.
 - Rename documents by updating only the title.
 - Publishing means isPublished=true.
 - Unpublishing means isPublished=false.
@@ -112,7 +143,7 @@ export async function POST(req: Request) {
   const { messages } = await req.json();
 
   const result = streamText({
-    model: google("gemini-2.5-flash-lite"),
+    model: groq("llama-3.3-70b-versatile"),
 
     messages: await convertToModelMessages(messages),
 
@@ -121,6 +152,32 @@ export async function POST(req: Request) {
     maxSteps: 20,
 
     tools: {
+      searchDocumentsByTitle: tool({
+        description:
+          "Find documents by title (exact or fuzzy match). Use this FIRST when resolving document references like 'edit my React notes'. Returns matching documents with their IDs.",
+        parameters: z.object({
+          title: z.string().describe("Title or keywords to search for"),
+          fuzzy: z
+            .boolean()
+            .optional()
+            .describe("Use fuzzy matching instead of exact substring match"),
+        }),
+      }),
+
+      searchDocumentsByContent: tool({
+        description:
+          "Find documents by searching their content. Use when users reference content within documents or when title search has no results.",
+        parameters: z.object({
+          content: z.string().describe("Content keywords to search for"),
+        }),
+      }),
+
+      listAllDocuments: tool({
+        description:
+          "Get all non-archived documents. Use at the start of complex requests to understand what documents are available.",
+        parameters: z.object({}),
+      }),
+
       createDocument: tool({
         description:
           "Create exactly ONE document. Title is required. Generate a short meaningful title if the user didn't provide one.",
@@ -159,7 +216,7 @@ Only include fields that actually need changing.
           content: z
             .string()
             .optional()
-            .describe("Markdown content"),
+            .describe("A valid JSON string containing an array of BlockNote blocks."),
 
           icon: z
             .string()
