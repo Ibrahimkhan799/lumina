@@ -278,7 +278,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              `/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -336,7 +336,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              `/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -374,7 +374,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              `/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -412,7 +412,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              `/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -450,7 +450,7 @@ export async function POST(req: Request) {
             }
 
             const response = await fetch(
-              `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/chat/mutations`,
+              `/api/chat/mutations`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
