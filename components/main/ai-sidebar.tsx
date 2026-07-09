@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
 import {
     ChevronsRightIcon,
@@ -27,11 +28,10 @@ export const AiSidebar = () => {
     const endRef = useRef<HTMLDivElement>(null);
 
     const { messages, sendMessage, status, error } = useChat({
-        api: "/api/chat",
-        maxSteps: 20,
+        transport: new DefaultChatTransport({ api: "/api/chat" }),
     });
 
-    const isLoading = status === "in_progress" || status === "streaming";
+    const isLoading = status === "submitted" || status === "streaming";
 
     const handleMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
         event.preventDefault();
@@ -160,22 +160,21 @@ export const AiSidebar = () => {
                                             : "bg-background border rounded-bl-sm"
                                 )}
                             >
-                                {m.parts ? m.parts.map((part, i) => {
-                                    if (part.type === "text") {
-                                        return <span key={i}>{part.text}</span>;
+                                {m.parts && Array.isArray(m.parts) ? m.parts.map((part, i) => {
+                                    const partAny = part as AnyRecord;
+                                    if (partAny.type === "text") {
+                                        return <span key={i}>{partAny.text}</span>;
                                     }
-                                    if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
-                                        const toolPart = part as AnyRecord;
-
+                                    if (partAny.type?.startsWith("tool-") || partAny.type === "dynamic-tool") {
                                         // Detect if execution is completely finished
-                                        const isDone = toolPart.state === "output-available" || toolPart.state === "result";
+                                        const isDone = partAny.state === "output-available" || partAny.state === "result";
                                         // Verify if the returned output caught an application/validation error
-                                        const isFailed = toolPart.state === "output-error" || (isDone && toolPart.result?.success === false);
+                                        const isFailed = partAny.state === "output-error" || (isDone && partAny.result?.success === false);
 
                                         return (
                                             <div key={i} className="mt-2 p-2 bg-muted/60 rounded-lg text-xs font-mono border">
                                                 <span className="text-indigo-400 font-semibold">
-                                                    {toolPart.toolName ?? part.type.replace("tool-", "")}
+                                                    {partAny.toolName ?? partAny.type?.replace("tool-", "")}
                                                 </span>
                                                 {isFailed ? (
                                                     <span className="text-red-400 ml-2">✗ Failed</span>
@@ -188,7 +187,7 @@ export const AiSidebar = () => {
                                         );
                                     }
                                     return null;
-                                }) : (m.content ? <span>{String(m.content)}</span> : null)}
+                                }) : null}
                             </div>
                         </div>
                     ))}

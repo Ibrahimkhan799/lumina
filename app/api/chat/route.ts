@@ -1,8 +1,6 @@
 import { groq } from "@ai-sdk/groq";
 import { convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
-import { api } from "@/convex/_generated/api";
-import { fetchQuery, fetchAction, fetchMutation } from "convex/server";
 import { auth } from "@clerk/nextjs/server";
 
 export const maxDuration = 60;
@@ -157,12 +155,11 @@ export async function POST(req: Request) {
     model: groq("llama-3.3-70b-versatile"),
     messages: await convertToModelMessages(messages),
     system: SYSTEM_PROMPT,
-    maxSteps: 20,
     tools: {
       searchDocumentsByTitle: tool({
         description:
           "Find documents by title (exact or fuzzy match). Use this FIRST when resolving document references like 'edit my React notes'. Returns matching documents with their IDs.",
-        parameters: z.object({
+        inputSchema: z.object({
           title: z.string().describe("Title or keywords to search for"),
           fuzzy: z
             .boolean()
@@ -202,7 +199,7 @@ export async function POST(req: Request) {
       searchDocumentsByContent: tool({
         description:
           "Find documents by searching their content. Use when users reference content within documents or when title search has no results.",
-        parameters: z.object({
+        inputSchema: z.object({
           content: z.string().describe("Content keywords to search for"),
         }),
         execute: async ({ content }) => {
@@ -237,7 +234,7 @@ export async function POST(req: Request) {
       listAllDocuments: tool({
         description:
           "Get all non-archived documents. Use at the start of complex requests to understand what documents are available.",
-        parameters: z.object({}),
+        inputSchema: z.object({}),
         execute: async () => {
           try {
             const response = await fetch(
@@ -267,7 +264,7 @@ export async function POST(req: Request) {
       createDocument: tool({
         description:
           "Create exactly ONE document. Title is required. Generate a short meaningful title if the user didn't provide one.",
-        parameters: z.object({
+        inputSchema: z.object({
           title: z.string().describe("Title of the document"),
           parentDocumentId: z
             .string()
@@ -309,7 +306,7 @@ export async function POST(req: Request) {
 
       updateDocument: tool({
         description: `Update any editable field of a document. Use this tool for renaming, editing content, changing icon, changing cover image, publishing, or unpublishing. Only include fields that actually need changing.`,
-        parameters: z.object({
+        inputSchema: z.object({
           id: z.string().describe("Document ID"),
           title: z
             .string()
@@ -367,7 +364,7 @@ export async function POST(req: Request) {
 
       archiveDocument: tool({
         description: "Archive a document by its ID.",
-        parameters: z.object({
+        inputSchema: z.object({
           id: z.string().describe("Document ID"),
         }),
         execute: async ({ id }) => {
@@ -405,7 +402,7 @@ export async function POST(req: Request) {
 
       restoreDocument: tool({
         description: "Restore an archived document by its ID.",
-        parameters: z.object({
+        inputSchema: z.object({
           id: z.string().describe("Document ID"),
         }),
         execute: async ({ id }) => {
@@ -443,7 +440,7 @@ export async function POST(req: Request) {
 
       deleteDocument: tool({
         description: "Permanently delete a document by its ID. This action cannot be undone.",
-        parameters: z.object({
+        inputSchema: z.object({
           id: z.string().describe("Document ID"),
         }),
         execute: async ({ id }) => {
